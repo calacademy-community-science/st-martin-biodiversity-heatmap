@@ -16,8 +16,8 @@ library(stars)
 
 
 target_phyla <- c("Arthropoda", "Chordata", "Tracheophyta", 
-                  "Mollusca", "Annelida", "Bryophyta")
-target_classes <- c("Reptilia", "Aves", "Mammalia")
+                  "Annelida", "Bryophyta")
+target_classes <- c("Reptilia", "Aves", "Mammalia", "Gastropoda")
 target_clades <- c(target_phyla, target_classes)
 
 taxa.df <- 

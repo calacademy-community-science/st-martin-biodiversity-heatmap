@@ -11,7 +11,8 @@ library(shiny)
 # Read in spatial data
 occ.sf <- 
   st_read("data/stmartin_gbif.gpkg") %>% 
-  select(phylum, class, order, family, genus, species, geom, year)
+  select(phylum, class, order, family, genus, species, 
+         geom, year)
 
 island.sf <- st_read("data/st_martin_land.gpkg")
 island_bbox.area <- 

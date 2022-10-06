@@ -74,9 +74,11 @@ gbif.sf <- st_read("../data/occurrence/stmartin_gbif.gpkg")
 
 phylo.df <- gbif.sf %>% tibble() %>% select(phylum:species) %>% distinct()
 write_csv2(phylo.df, "data/taxon_info.csv")
-  
 
-
+## Here is a trimmed down version specificallly for the shiny app
+gbif.sf <- st_read("../../data/occurrence/stmartin_gbif.gpkg")
+gbif_cert.sf <- gbif.sf %>% filter(coordinateUncertaintyInMeters < 1000)
+write_sf(gbif_cert.sf,"data/stmartin_gbif.gpkg")
 
 
 
