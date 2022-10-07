@@ -32,6 +32,16 @@ shinyServer(function(input, output) {
   # leaflet map
   output$heatmap <- renderLeaflet({
     
+    # Make Basemap
+    leaflet() %>%
+      addProviderTiles('Esri.WorldImagery',
+                       options = providerTileOptions(opacity = .6)) %>%
+      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49)
+    
+    
+  }) # end leaflet map
+  
+  observe({
     
     # Filter for taxa
     occ_taxa.sf <- 
@@ -81,16 +91,8 @@ shinyServer(function(input, output) {
               heatmap.sf$GEN_COUNT, heatmap.sf$FAM_COUNT) %>%
       lapply(htmltools::HTML)
     
-    # Make Basemap
-    basemap.leaf <- 
-      leaflet(heatmap.sf) %>%
-      addProviderTiles('Esri.WorldImagery',
-                       options = providerTileOptions(opacity = .6)) %>%
-      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49)
-    
-    
     if(nrow(heatmap.sf) == 0){
-      basemap.leaf
+      # basemap.leaf
       
     } else {
       # Color palette
@@ -98,9 +100,11 @@ shinyServer(function(input, output) {
                           domain = heatmap.sf[, input$data_type][[1]],
                           na.color = "#00000000")
       
-      
-      basemap.leaf %>%
-        addPolygons(label = grid_labels,
+      leafletProxy("heatmap") %>%
+        clearShapes() %>%
+        addPolygons(layerId = "layer1",
+                    data = heatmap.sf,
+                    label = grid_labels,
                     color = ~pal(heatmap.sf[, input$data_type][[1]]),
                     stroke = FALSE,
                     opacity = input$opacity,
@@ -118,11 +122,9 @@ shinyServer(function(input, output) {
                   values = ~heatmap.sf[, input$data_type][[1]],
                   title = "Count",
                   opacity = 1)
-      
+
     }
     
-    
-  }) # end leaflet map
-  
+  })
   
 })
