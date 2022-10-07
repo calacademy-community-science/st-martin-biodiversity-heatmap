@@ -14,7 +14,7 @@ library(sf)
 library(leaflet)
 library(stars)
 
-
+# Read in phylogenetic info for checkboxes
 target_phyla <- c("Arthropoda", "Chordata", "Tracheophyta", 
                   "Annelida", "Bryophyta")
 target_classes <- c("Reptilia", "Aves", "Mammalia", "Gastropoda")
@@ -24,16 +24,34 @@ taxa.df <-
   read_csv2("data/taxon_info.csv") %>% 
   filter(phylum %in% target_phyla)
 
+# A list object to set up multicols for checkboxGroupInput
+tweaks <- 
+  list(tags$head(
+    tags$style(
+      HTML(
+        ".checkbox-inline { 
+                    margin-left: 0px;
+                    margin-right: 10px;
+          }
+         .checkbox-inline+.checkbox-inline {
+                    margin-left: 0px;
+                    margin-right: 10px;
+          }
+        "
+      )
+    ) 
+  ))
 
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
-  
+
   # Application title
   titlePanel("Biodiversity Heatmap for St. Martin"),
   sidebarLayout(
     sidebarPanel(
       width = 3,
+      tweaks,
       checkboxGroupInput(inputId = "clade",
                          label = h3("Select Clade: "),
                          choices = target_clades,
