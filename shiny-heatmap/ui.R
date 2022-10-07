@@ -38,7 +38,7 @@ shinyUI(fluidPage(
                          label = h3("Select Clade: "),
                          choices = target_clades,
                          selected = "Tracheophyta",
-                         inline = F),
+                         inline = T),
       br(),
 
       radioButtons("data_type", h3("What do you want to see?"),
@@ -53,6 +53,11 @@ shinyUI(fluidPage(
                   label = h3(HTML("Spatial Resolution (km<sup>2</sup>)")),
                   min = .05, max = 1, value = .2,
                   step = .05
+      ),
+      
+      sliderInput(inputId = "opacity",
+                  label = h3(HTML("Layer Opacity")),
+                  min = 0, max = 1, value = .7
       ),
     ),
     

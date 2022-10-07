@@ -37,11 +37,13 @@ shinyServer(function(input, output) {
     occ_taxa.sf <- 
       occ.sf %>% 
       filter(if_any(c(phylum, class), ~. %in% input$clade)) %>%
-      # filter(if_any(c(phylum, class), ~. %in% "Mammalia")) %>%
+      # filter(if_any(c(phylum, class), ~. %in% "")) %>%
       mutate(obs_count = 1) # every row is one obs, used for aggregation in raster
     
     # Change spatial resolution
     sp_resolution <- (input$sp_resolution %>% as.numeric()) * 1000000 # convert sq km to sq m
+    # sp_resolution <- (.2 ) * 1000000 # convert sq km to sq m
+    
     n_cells <- (island_bbox.area / sp_resolution) %>% as.numeric()
     
     # Rasterize bounding box then convert back to sf
@@ -69,40 +71,58 @@ shinyServer(function(input, output) {
     # Join counts back to the grid sf
     heatmap.sf <- 
       template.sf %>% 
-      left_join(occ_grid.df, by = "GRID_ID")
+      left_join(occ_grid.df, by = "GRID_ID") %>% 
+      filter(!is.na(OBS_COUNT)) # remove NA polygons entirely
     
-    # Color palette
-    pal <- colorNumeric("viridis",
-                        domain = heatmap.sf[, input$data_type][[1]],
-                        na.color = "#00000000")
-
+    # Hover Labels
     grid_labels <-
       sprintf("<strong>Observations:</strong> %s<br/><strong>Species:</strong> %s<br/> <strong>Genera:</strong> %s<br/> <strong>Families:</strong> %s",
               heatmap.sf$OBS_COUNT, heatmap.sf$SP_COUNT,
               heatmap.sf$GEN_COUNT, heatmap.sf$FAM_COUNT) %>%
       lapply(htmltools::HTML)
     
-    leaflet(heatmap.sf) %>%
-      addProviderTiles("CartoDB.Positron") %>%
-      addPolygons(label = grid_labels,
-                  color = ~pal(heatmap.sf[, input$data_type][[1]]),
-                  opacity = .7,
-                  fillOpacity = .7,
-                  highlightOptions = highlightOptions(
-                    weight = 5,
-                    fillOpacity = 1,
-                    bringToFront = TRUE),
-                  labelOptions = labelOptions(
-                    style = list("font-weight" = "normal", padding = "3px 8px"),
-                    textsize = "15px",
-                    direction = "auto")
-      ) %>%
-      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49) %>%
-      addLegend("bottomright", pal = pal,
-                values = ~heatmap.sf[, input$data_type][[1]],
-                title = "Count",
-                opacity = 1)
+    # Make Basemap
+    basemap.leaf <- 
+      leaflet(heatmap.sf) %>%
+      addProviderTiles('Esri.WorldImagery',
+                       options = providerTileOptions(opacity = .6)) %>%
+      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49)
+    
+    
+    if(nrow(heatmap.sf) == 0){
+      basemap.leaf
+      
+    } else {
+      # Color palette
+      pal <- colorNumeric("viridis",
+                          domain = heatmap.sf[, input$data_type][[1]],
+                          na.color = "#00000000")
+      
+      
+      basemap.leaf %>%
+        addPolygons(label = grid_labels,
+                    color = ~pal(heatmap.sf[, input$data_type][[1]]),
+                    stroke = FALSE,
+                    opacity = input$opacity,
+                    fillOpacity = input$opacity,
+                    highlightOptions = highlightOptions(
+                      weight = 5,
+                      fillOpacity = 1,
+                      bringToFront = TRUE),
+                    labelOptions = labelOptions(
+                      style = list("font-weight" = "normal", padding = "3px 8px"),
+                      textsize = "15px",
+                      direction = "auto")
+        ) %>%
+        addLegend("bottomright", pal = pal,
+                  values = ~heatmap.sf[, input$data_type][[1]],
+                  title = "Count",
+                  opacity = 1)
+      
+    }
+    
     
   }) # end leaflet map
+  
   
 })
