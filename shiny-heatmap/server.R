@@ -24,12 +24,9 @@ island_bbox.area <-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   
-  # --- Header Menus ------------------------------------- 
-  
-  output$value <- renderText({ input$clade })
   
   
-  # leaflet map
+  ###### leaflet basemap ######
   output$heatmap <- renderLeaflet({
     
     # Make Basemap
@@ -38,11 +35,15 @@ shinyServer(function(input, output) {
                        options = providerTileOptions(opacity = .6)) %>%
       setView(-63.06017551131934, 18.06793379171563, zoom = 12.49)
     
-    
   }) # end leaflet map
   
-  observe({
-    
+  
+  
+  
+  
+  ###### Filter occurrence data reactively ######
+  
+  filteredData <- reactive({
     # Filter for taxa
     occ_taxa.sf <- 
       occ.sf %>% 
@@ -83,29 +84,32 @@ shinyServer(function(input, output) {
       template.sf %>% 
       left_join(occ_grid.df, by = "GRID_ID") %>% 
       filter(!is.na(OBS_COUNT)) # remove NA polygons entirely
-    
-    # Hover Labels
-    grid_labels <-
-      sprintf("<strong>Observations:</strong> %s<br/><strong>Species:</strong> %s<br/> <strong>Genera:</strong> %s<br/> <strong>Families:</strong> %s",
-              heatmap.sf$OBS_COUNT, heatmap.sf$SP_COUNT,
-              heatmap.sf$GEN_COUNT, heatmap.sf$FAM_COUNT) %>%
-      lapply(htmltools::HTML)
-    
-    if(nrow(heatmap.sf) == 0){
-      # basemap.leaf
+  })
+  
+  
+  
+  
+  #### Add the shapes to the base map #####
+  observe({
+    if(nrow(filteredData()) > 0){ # Make sure there's data
       
-    } else {
-      # Color palette
+      # Hover Labels
+      grid_labels <- 
+        with(filteredData(),
+             sprintf("<strong>Observations:</strong> %s<br/><strong>Species:</strong> %s<br/> <strong>Genera:</strong> %s<br/> <strong>Families:</strong> %s",
+                     OBS_COUNT, SP_COUNT,
+                     GEN_COUNT, FAM_COUNT) %>%
+               lapply(htmltools::HTML))
+      
+      
       pal <- colorNumeric("viridis",
-                          domain = heatmap.sf[, input$data_type][[1]],
+                          domain = filteredData()[, input$data_type][[1]],
                           na.color = "#00000000")
       
-      leafletProxy("heatmap") %>%
+      leafletProxy("heatmap", data = filteredData()) %>%
         clearShapes() %>%
-        addPolygons(layerId = "layer1",
-                    data = heatmap.sf,
-                    label = grid_labels,
-                    color = ~pal(heatmap.sf[, input$data_type][[1]]),
+        addPolygons(label = grid_labels,
+                    color = ~pal(filteredData()[, input$data_type][[1]]),
                     stroke = FALSE,
                     opacity = input$opacity,
                     fillOpacity = input$opacity,
@@ -118,13 +122,17 @@ shinyServer(function(input, output) {
                       textsize = "15px",
                       direction = "auto")
         ) %>%
+        clearControls() %>% 
         addLegend("bottomright", pal = pal,
-                  values = ~heatmap.sf[, input$data_type][[1]],
+                  values = ~filteredData()[, input$data_type][[1]],
                   title = "Count",
                   opacity = 1)
-
+      
+    } else { # Clear data if nothing selected
+      
+      leafletProxy("heatmap") %>%
+        clearShapes()
     }
-    
-  })
+  }) # end observe
   
 })
