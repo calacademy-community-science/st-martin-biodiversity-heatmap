@@ -21,6 +21,8 @@ island_bbox.area <-
   st_as_sfc() %>% 
   st_area()
 
+border.sf <- st_read("data/st_martin_border.gpkg") %>% st_union()
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   
@@ -32,8 +34,9 @@ shinyServer(function(input, output) {
     # Make Basemap
     leaflet() %>%
       addProviderTiles('Esri.WorldImagery',
-                       options = providerTileOptions(opacity = .6)) %>%
-      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49)
+                       options = providerTileOptions(opacity = .6)) %>% 
+      setView(-63.06017551131934, 18.06793379171563, zoom = 12.49) %>% 
+      hideGroup("Political Border")
     
   }) # end leaflet map
   
@@ -61,7 +64,7 @@ shinyServer(function(input, output) {
     template.sf <- st_as_stars(st_bbox(island.sf),
                                n = n_cells, 
                                values = 0) %>% 
-      st_as_sf(template.r) %>% # back to sf
+      st_as_sf() %>% # back to sf
       mutate(GRID_ID = 1:n())
     
     # Assign grid number from template to each point, then group by grid and 
@@ -110,23 +113,34 @@ shinyServer(function(input, output) {
         clearShapes() %>%
         addPolygons(label = grid_labels,
                     color = ~pal(filteredData()[, input$data_type][[1]]),
-                    stroke = FALSE,
+                    stroke = T,
+                    weight = .5,
                     opacity = input$opacity,
                     fillOpacity = input$opacity,
                     highlightOptions = highlightOptions(
-                      weight = 5,
-                      fillOpacity = 1,
-                      bringToFront = TRUE),
+                      weight = 2,
+                      fillOpacity = 0,
+                      bringToFront = TRUE,
+                      opacity = input$opacity
+                      ),
                     labelOptions = labelOptions(
                       style = list("font-weight" = "normal", padding = "3px 8px"),
                       textsize = "15px",
                       direction = "auto")
         ) %>%
-        clearControls() %>% 
+        # Border
+        addPolylines(data = border.sf, group = "Political Border", 
+                     weight = 3, color = "black", opacity = 1) %>%
+        clearControls() %>%
         addLegend("bottomright", pal = pal,
                   values = ~filteredData()[, input$data_type][[1]],
                   title = "Count",
-                  opacity = 1)
+                  opacity = 1) %>% 
+        # This shows and hides some of the different layers
+        addLayersControl(
+          overlayGroups = c("Political Border"),
+          options = layersControlOptions(collapsed = FALSE)
+        )
       
     } else { # Clear data if nothing selected
       

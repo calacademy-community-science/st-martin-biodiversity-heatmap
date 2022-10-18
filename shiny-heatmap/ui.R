@@ -69,8 +69,8 @@ shinyUI(fluidPage(
       
       sliderInput(inputId = "sp_resolution",
                   label = h3(HTML("Spatial Resolution (km<sup>2</sup>)")),
-                  min = .05, max = 1, value = .2,
-                  step = .05
+                  min = .025, max = 1, value = .2,
+                  step = .025
       ),
       
       sliderInput(inputId = "opacity",
