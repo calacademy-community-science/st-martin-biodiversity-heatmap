@@ -12,7 +12,8 @@ library(shiny)
 occ.sf <- 
   st_read("data/stmartin_gbif.gpkg") %>% 
   select(phylum, class, order, family, genus, species, 
-         geom, year)
+         geom, year) %>% 
+  filter(species != "")
 
 island.sf <- st_read("data/st_martin_land.gpkg")
 island_bbox.area <- 
@@ -45,17 +46,15 @@ shinyServer(function(input, output) {
   
   
   ###### Filter occurrence data reactively ######
-  
   filteredData <- reactive({
     # Filter for taxa
     occ_taxa.sf <- 
       occ.sf %>% 
       filter(if_any(c(phylum, class), ~. %in% input$clade)) %>%
-      # filter(if_any(c(phylum, class), ~. %in% "")) %>%
       mutate(obs_count = 1) # every row is one obs, used for aggregation in raster
     
     # Change spatial resolution
-    sp_resolution <- (input$sp_resolution %>% as.numeric()) * 1000000 # convert sq km to sq m
+    sp_resolution <- (input$sp_resolution %>% as.numeric()) * 1000^2 # convert sq km to sq m
     # sp_resolution <- (.2 ) * 1000000 # convert sq km to sq m
     
     n_cells <- (island_bbox.area / sp_resolution) %>% as.numeric()
@@ -67,11 +66,14 @@ shinyServer(function(input, output) {
       st_as_sf() %>% # back to sf
       mutate(GRID_ID = 1:n())
     
+    occ_grid_long.df <- 
+      occ_taxa.sf %>% 
+      st_join(template.sf)
+    
     # Assign grid number from template to each point, then group by grid and 
     # get different taxonomic counts from within
-    occ_grid.df <- 
-      occ_taxa.sf %>% 
-      st_join(template.sf) %>% 
+    occ_grid_short.df <- 
+      occ_grid_long.df %>% 
       group_by(GRID_ID) %>% 
       mutate(OBS_COUNT = n(),
              SP_COUNT = n_distinct(species),
@@ -85,8 +87,13 @@ shinyServer(function(input, output) {
     # Join counts back to the grid sf
     heatmap.sf <- 
       template.sf %>% 
-      left_join(occ_grid.df, by = "GRID_ID") %>% 
+      left_join(occ_grid_short.df, by = "GRID_ID") %>% 
       filter(!is.na(OBS_COUNT)) # remove NA polygons entirely
+    
+    return(list(
+      "heatmap_sf" = heatmap.sf,
+      "long_grid_df" = occ_grid_long.df
+    ))
   })
   
   
@@ -94,11 +101,12 @@ shinyServer(function(input, output) {
   
   #### Add the shapes to the base map #####
   observe({
-    if(nrow(filteredData()) > 0){ # Make sure there's data
+    heatmap.sf_reactive <- filteredData()[["heatmap_sf"]]
+    if(nrow(heatmap.sf_reactive) > 0){ # Make sure there's data
       
       # Hover Labels
       grid_labels <- 
-        with(filteredData(),
+        with(heatmap.sf_reactive,
              sprintf("<strong>Observations:</strong> %s<br/><strong>Species:</strong> %s<br/> <strong>Genera:</strong> %s<br/> <strong>Families:</strong> %s",
                      OBS_COUNT, SP_COUNT,
                      GEN_COUNT, FAM_COUNT) %>%
@@ -106,23 +114,24 @@ shinyServer(function(input, output) {
       
       
       pal <- colorNumeric("viridis",
-                          domain = filteredData()[, input$data_type][[1]],
+                          domain = heatmap.sf_reactive[, input$data_type][[1]],
                           na.color = "#00000000")
       
-      leafletProxy("heatmap", data = filteredData()) %>%
+      leafletProxy("heatmap", data = heatmap.sf_reactive) %>%
         clearShapes() %>%
         addPolygons(label = grid_labels,
-                    color = ~pal(filteredData()[, input$data_type][[1]]),
+                    color = ~pal(heatmap.sf_reactive[, input$data_type][[1]]),
                     stroke = T,
                     weight = .5,
                     opacity = input$opacity,
                     fillOpacity = input$opacity,
+                    layerId = ~GRID_ID,
                     highlightOptions = highlightOptions(
                       weight = 2,
                       fillOpacity = 0,
                       bringToFront = TRUE,
                       opacity = input$opacity
-                      ),
+                    ),
                     labelOptions = labelOptions(
                       style = list("font-weight" = "normal", padding = "3px 8px"),
                       textsize = "15px",
@@ -133,7 +142,7 @@ shinyServer(function(input, output) {
                      weight = 3, color = "black", opacity = 1) %>%
         clearControls() %>%
         addLegend("bottomright", pal = pal,
-                  values = ~filteredData()[, input$data_type][[1]],
+                  values = ~heatmap.sf_reactive[, input$data_type][[1]],
                   title = "Count",
                   opacity = 1) %>% 
         # This shows and hides some of the different layers
@@ -148,5 +157,27 @@ shinyServer(function(input, output) {
         clearShapes()
     }
   }) # end observe
+  
+  #### CLick for species list #####
+  
+  observeEvent(input$heatmap_shape_click$id, {
+    # print("do it!")
+    hide(id = "species_placeholder", asis = TRUE)
+  })
+  
+  output$species_list <- renderText({
+    filteredData()[["long_grid_df"]] %>% 
+      filter(GRID_ID == input$heatmap_shape_click$id) %>%
+      arrange(species) %>% 
+      pull(species) %>% 
+      unique() %>% 
+      # Add hyperlink to inaturalist
+      paste0('<a href="https://www.inaturalist.org/taxa/',
+             str_replace(., " ", "-"),'" target="_blank">', ., "</a>") %>% 
+      paste(collapse = "<br>") %>% 
+      HTML()
+    
+  }) %>% 
+    bindEvent(input$heatmap_shape_click)
   
 })

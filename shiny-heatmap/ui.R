@@ -13,58 +13,45 @@ library(tidyverse)
 library(sf)
 library(leaflet)
 library(stars)
+library(shinyjs)
 
 # Read in phylogenetic info for checkboxes
-target_phyla <- c("Arthropoda", "Chordata", "Tracheophyta", 
-                  "Annelida", "Bryophyta")
-target_classes <- c("Reptilia", "Aves", "Mammalia", "Gastropoda")
-target_clades <- c(target_phyla, target_classes)
+target_clades <- list("Birds" = "Aves", 
+                      "Reptiles" = "Reptilia",
+                      "Mammals" = "Mammalia",
+                      "Slugs/Snails" = "Gastropoda",
+                      "Arthropods" = "Arthropoda",
+                      "Plants" = "Tracheophyta"
+)
 
 taxa.df <- 
   read_csv2("data/taxon_info.csv") %>% 
-  filter(phylum %in% target_phyla)
+  filter(if_any(c(phylum, class), ~. %in% unlist(target_clades)))
 
-# A list object to set up multicols for checkboxGroupInput
-tweaks <- 
-  list(tags$head(
-    tags$style(
-      HTML(
-        ".checkbox-inline { 
-                    margin-left: 0px;
-                    margin-right: 10px;
-          }
-         .checkbox-inline+.checkbox-inline {
-                    margin-left: 0px;
-                    margin-right: 10px;
-          }
-        "
-      )
-    ) 
-  ))
 
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
-
+  
   # Application title
   titlePanel("Biodiversity Heatmap for St. Martin"),
-  sidebarLayout(
-    sidebarPanel(
-      width = 3,
-      tweaks,
-      checkboxGroupInput(inputId = "clade",
-                         label = h3("Select Clade: "),
-                         choices = target_clades,
-                         selected = "Tracheophyta",
-                         inline = T),
+  column(
+    width = 3,
+    fluidRow(
+      class="well",
+      selectizeInput(inputId = "clade",
+                     label = h3("Select Clade(s):"),
+                     choices = target_clades,
+                     selected = "Aves",
+                     multiple = T),
       br(),
-
-      radioButtons("data_type", h3("What do you want to see?"),
-                   choices = list("Total Observations" = "OBS_COUNT", 
-                                  "Total Species" = "SP_COUNT",
-                                  "Total Genera" = "GEN_COUNT",
-                                  "Total Families" = "FAM_COUNT"), 
-                   selected = "SP_COUNT"),
+      
+      selectInput("data_type", h3("What do you want to see?"),
+                  choices = list("Total Observations" = "OBS_COUNT", 
+                                 "Total Species" = "SP_COUNT",
+                                 "Total Genera" = "GEN_COUNT",
+                                 "Total Families" = "FAM_COUNT"), 
+                  selected = "SP_COUNT"),
       br(),
       
       sliderInput(inputId = "sp_resolution",
@@ -79,13 +66,24 @@ shinyUI(fluidPage(
       ),
     ),
     
-    mainPanel(
-      width = 9,
-      leafletOutput("heatmap", height="90vh") %>% 
-        shinycssloaders::withSpinner(type = 8, # Loading animation
-                                     color = "darkgreen", 
-                                     size = .75)
+    # Species list
+    fluidRow(
+      useShinyjs(),
+      class = "well",
+      style = "overflow-y:scroll; max-height: 15vh;",
+      p(id = "species_placeholder",
+           "Click on a grid cell to show species list here", 
+           style = "font-size:12px; text-align: center; font-style: italic;"),
+      span(htmlOutput("species_list"), 
+           style = "font-size:12px; text-align: left; font-style: italic;")
     )
-  )
+  ),
+  column(
+    width = 9,
+    leafletOutput("heatmap", height="90vh") %>% 
+      shinycssloaders::withSpinner(type = 8, # Loading animation
+                                   color = "darkgreen", 
+                                   size = .75)
+    )
   # end main body fluidRow
 ))
