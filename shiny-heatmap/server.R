@@ -24,10 +24,9 @@ island_bbox.area <-
 
 border.sf <- st_read("data/st_martin_border.gpkg") %>% st_union()
 
-# Define server logic required to draw a histogram
+
+
 shinyServer(function(input, output) {
-  
-  
   
   ###### leaflet basemap ######
   output$heatmap <- renderLeaflet({
@@ -43,8 +42,6 @@ shinyServer(function(input, output) {
   
   
   
-  
-  
   ###### Filter occurrence data reactively ######
   filteredData <- reactive({
     # Filter for taxa
@@ -55,8 +52,7 @@ shinyServer(function(input, output) {
     
     # Change spatial resolution
     sp_resolution <- (input$sp_resolution %>% as.numeric()) * 1000^2 # convert sq km to sq m
-    # sp_resolution <- (.2 ) * 1000000 # convert sq km to sq m
-    
+
     n_cells <- (island_bbox.area / sp_resolution) %>% as.numeric()
     
     # Rasterize bounding box then convert back to sf
@@ -112,8 +108,17 @@ shinyServer(function(input, output) {
                      GEN_COUNT, FAM_COUNT) %>%
                lapply(htmltools::HTML))
       
-      
-      pal <- colorNumeric("viridis",
+      #' Okay so we have to make an initial color ramp of discrete colors to then
+      #' skew it with the 'bias' parameter to then feed it to colorNumeric for use
+      #' in leaflet
+      #' inspired by https://stackoverflow.com/questions/49126405/how-to-set-up-asymmetrical-color-gradient-for-a-numerical-variable-in-leaflet-in
+      #' 
+      pre_colors <- colorRampPalette(colors = c("midnightblue", "chartreuse"))(20)
+      # pre_colors <- colorRampPalette(colors = c("black", "orangered"))(20)
+      trans_colors <- colorRampPalette(colors = pre_colors,
+                              bias = 2)(30)
+
+      pal <- colorNumeric(trans_colors,
                           domain = heatmap.sf_reactive[, input$data_type][[1]],
                           na.color = "#00000000")
       
@@ -161,7 +166,6 @@ shinyServer(function(input, output) {
   #### CLick for species list #####
   
   observeEvent(input$heatmap_shape_click$id, {
-    # print("do it!")
     hide(id = "species_placeholder", asis = TRUE)
   })
   
@@ -176,7 +180,6 @@ shinyServer(function(input, output) {
              str_replace(., " ", "-"),'" target="_blank">', ., "</a>") %>% 
       paste(collapse = "<br>") %>% 
       HTML()
-    
   }) %>% 
     bindEvent(input$heatmap_shape_click)
   

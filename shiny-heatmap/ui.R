@@ -14,6 +14,7 @@ library(sf)
 library(leaflet)
 library(stars)
 library(shinyjs)
+library(RColorBrewer)
 
 # Read in phylogenetic info for checkboxes
 target_clades <- list("Birds" = "Aves", 
@@ -62,16 +63,16 @@ shinyUI(fluidPage(
       
       sliderInput(inputId = "opacity",
                   label = h3(HTML("Layer Opacity")),
-                  min = 0, max = 1, value = .7
+                  min = 0, max = 1, value = .85
       ),
     ),
     
     # Species list
     fluidRow(
-      useShinyjs(),
+      useShinyjs(), # Need this to hide the species_placeholder
       class = "well",
-      style = "overflow-y:scroll; max-height: 15vh;",
-      p(id = "species_placeholder",
+      style = "overflow-y:scroll; max-height: 15vh;", # Add scrollbar to species list
+      span(id = "species_placeholder",
            "Click on a grid cell to show species list here", 
            style = "font-size:12px; text-align: center; font-style: italic;"),
       span(htmlOutput("species_list"), 
