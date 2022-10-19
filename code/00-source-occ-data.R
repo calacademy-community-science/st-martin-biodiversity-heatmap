@@ -54,7 +54,7 @@ occ_download_wait(stmartin_query.info)
 dir.create("../data/occurrence")
 gbif.df <- occ_download_get(stmartin_query.info,
                                   path = "../data/occurrence",
-                                  overwrite = F) %>%
+                                  overwrite = T) %>%
   occ_download_import()
 
 gbif.sf <- 
@@ -66,18 +66,25 @@ ggplot() +
   geom_sf(data = island.sf) +
   geom_sf(data = gbif.sf %>% sample_n(5000), alpha = .5)
 
-st_write(gbif.sf, "../data/occurrence/stmartin_gbif.gpkg")
+st_write(gbif.sf, "../data/occurrence/stmartin_gbif_raw.gpkg")
 
 
 ## Going to make a little dataframe of phylogenetic information for the shiny app
-gbif.sf <- st_read("../data/occurrence/stmartin_gbif.gpkg")
+gbif.sf <- st_read("../data/occurrence/stmartin_gbif_raw.gpkg")
 
 phylo.df <- gbif.sf %>% tibble() %>% select(phylum:species) %>% distinct()
-write_csv2(phylo.df, "data/taxon_info.csv")
+write_csv2(phylo.df, "../data/taxon_info.csv")
 
 ## Here is a trimmed down version specificallly for the shiny app
-gbif.sf <- st_read("../../data/occurrence/stmartin_gbif.gpkg")
+gbif.sf <- st_read("../data/occurrence/stmartin_gbif_raw.gpkg")
+# Has 60500 observations
+
+gbif.sf %>% filter(!is.na(coordinateUncertaintyInMeters)) %>% nrow()
+# Only 15822 have coordinate uncertainty measured
+
 gbif_cert.sf <- gbif.sf %>% filter(coordinateUncertaintyInMeters < 1000)
+# 13000 have less than 1000 uncertainty
+
 write_sf(gbif_cert.sf,"data/stmartin_gbif.gpkg")
 
 
