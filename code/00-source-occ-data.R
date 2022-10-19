@@ -11,6 +11,7 @@
 library(sf)
 library(tidyverse)
 library(rgbif)
+library(leaflet)
 
 # downloaded from https://data.humdata.org/dataset/cod-ab-maf? and https://data.humdata.org/dataset/cod-ab-sxm
 # and stitched together in GBIF
@@ -59,14 +60,14 @@ gbif.df <- occ_download_get(stmartin_query.info,
 
 gbif.sf <- 
   gbif.df %>% 
-  st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+  st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326, remove = F)
 
 # How does it look? good
 ggplot() + 
   geom_sf(data = island.sf) +
   geom_sf(data = gbif.sf %>% sample_n(5000), alpha = .5)
 
-st_write(gbif.sf, "../data/occurrence/stmartin_gbif_raw.gpkg")
+write_sf(gbif.sf, "../data/occurrence/stmartin_gbif_raw.gpkg")
 
 
 ## Going to make a little dataframe of phylogenetic information for the shiny app
@@ -82,10 +83,39 @@ gbif.sf <- st_read("../data/occurrence/stmartin_gbif_raw.gpkg")
 gbif.sf %>% filter(!is.na(coordinateUncertaintyInMeters)) %>% nrow()
 # Only 15822 have coordinate uncertainty measured
 
-gbif_cert.sf <- gbif.sf %>% filter(coordinateUncertaintyInMeters < 1000)
+# Let's go with the 60,000 records and just filter out fossils and materials (may be repeat samples)
+gbif_cert.sf <- 
+  gbif.sf %>% 
+  filter(#coordinateUncertaintyInMeters < 1000,
+         !(basisOfRecord %in% c("FOSSIL_SPECIMEN", "MATERIAL_SAMPLE")))
 # 13000 have less than 1000 uncertainty
 
-write_sf(gbif_cert.sf,"data/stmartin_gbif.gpkg")
+write_sf(gbif_cert.sf,"../data/stmartin_gbif.gpkg")
+
+# Messing around: 
+gbif_omitted.sf <- gbif.sf %>% 
+  filter(is.na(coordinateUncertaintyInMeters) | coordinateUncertaintyInMeters > 1000)
+
+leaflet() %>%
+  addProviderTiles('Esri.WorldImagery',
+                   options = providerTileOptions(opacity = .6)) %>% 
+  setView(-63.06017551131934, 18.06793379171563, zoom = 12.49) %>% 
+  addPolygons(data = gbif_omitted.sf)
+
+ggplot() + 
+  geom_sf(data = gbif_omitted.sf)
+st_precision(gbif_omitted.sf)
 
 
+getDecimalPlaces <- function(x) {min(which( x*10^(0:20)==floor(x*10^(0:20)) )) - 1}
 
+gbif_omitted.sf %>% 
+  mutate(LONLAT_DECRES = getDecimalPlaces(decimalLatitude)) %>% 
+  pull(LONLAT_DECRES) %>% 
+  table()
+
+gbif_omitted.sf %>% pull(basisOfRecord) %>% table()
+
+ggplot() + 
+  geom_sf(data = island_simple.sf) +
+  geom_sf(data = gbif_omitted.sf %>% filter(basisOfRecord == "PRESERVED_SPECIMEN"))
