@@ -24,6 +24,8 @@ island_bbox.area <-
 
 border.sf <- st_read("data/st_martin_border.gpkg") %>% st_union()
 
+proposed_protected.sf <- st_read("data/proposed_boundaries.gpkg") %>% st_union()
+
 
 
 shinyServer(function(input, output) {
@@ -36,7 +38,8 @@ shinyServer(function(input, output) {
       addProviderTiles('Esri.WorldImagery',
                        options = providerTileOptions(opacity = .6)) %>% 
       setView(-63.06017551131934, 18.06793379171563, zoom = 12.49) %>% 
-      hideGroup("Political Border")
+      hideGroup("Political Border") %>% 
+      hideGroup("Proposed Protected Areas")
     
   }) # end leaflet map
   
@@ -145,6 +148,8 @@ shinyServer(function(input, output) {
         # Border
         addPolylines(data = border.sf, group = "Political Border", 
                      weight = 3, color = "black", opacity = 1) %>%
+        addPolygons(data = proposed_protected.sf, group = "Proposed Protected Areas",
+                    fill = NA, weight = 3, color = "brown", opacity = 1) %>% 
         clearControls() %>%
         addLegend("bottomright", pal = pal,
                   values = ~heatmap.sf_reactive[, input$data_type][[1]],
@@ -152,7 +157,7 @@ shinyServer(function(input, output) {
                   opacity = 1) %>% 
         # This shows and hides some of the different layers
         addLayersControl(
-          overlayGroups = c("Political Border"),
+          overlayGroups = c("Political Border", "Proposed Protected Areas"),
           options = layersControlOptions(collapsed = FALSE)
         )
       

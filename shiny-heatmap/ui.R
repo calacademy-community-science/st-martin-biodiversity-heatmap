@@ -85,6 +85,9 @@ shinyUI(fluidPage(
       shinycssloaders::withSpinner(type = 8, # Loading animation
                                    color = "darkgreen", 
                                    size = .75)
-    )
+    ),
+  hr(),
+  div("Dataset last updated 2022-10-18 from GBIF. Observations collected after this data are not included.", 
+      style = "font-size:11px; text-align: center;")
   # end main body fluidRow
 ))
