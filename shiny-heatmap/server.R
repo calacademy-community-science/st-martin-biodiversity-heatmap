@@ -171,7 +171,7 @@ shinyServer(function(input, output) {
   #### CLick for species list #####
   
   observeEvent(input$heatmap_shape_click$id, {
-    hide(id = "species_placeholder", asis = TRUE)
+    hide(id = "species_placeholder")
   })
   
   output$species_list <- renderText({
